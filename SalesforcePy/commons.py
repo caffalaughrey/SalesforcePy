@@ -92,6 +92,18 @@ def put_request(base_request):
         data=base_request.request_body)
 
 
+def get_soap_login_request_body(username, password):
+    return '''<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\">
+    <soapenv:Body>
+       <login xmlns=\"urn:enterprise.soap.sforce.com\">
+           <username>%s</username>
+           <password>%s</password>
+       </login>
+    </soapenv:Body>
+</soapenv:Envelope>
+    ''' % (username, password)
+
+
 def kwarg_adder(func):
     """
     Decorator to add the kwargs from the client to the kwargs at the function level. If the same
@@ -305,3 +317,51 @@ class OAuthRequest(BaseRequest):
         self.request_url = 'https://%s%s' % (
             url, self.service) if self.request_url is None else self.request_url
         return self.request_url
+
+
+class SoapLoginRequest(BaseRequest):
+    """ Login request Soap implementation
+
+        .. versionadded:: 2.1.0
+    """
+    def __init__(self, username, password, org_id, **kwargs):
+        super(SoapLoginRequest, self).__init__(None, None, **kwargs)
+
+        self.headers = {'SOAPAction': 'login',
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'Expect': '100-continue',
+                        'Connection': 'Keep-Alive'}
+
+        self.username = username
+        self.password = password
+        self.org_id = org_id
+
+    def get_request_url(self):
+        service = '/services/Soap/c/%s/' % api_version
+        self.request_url = 'https://%s%s' % (login_url, service)
+
+        return self.request_url
+
+    def request(self):
+        (headers, logger, request_object, response,
+         service) = self.get_request_vars()
+        xml = get_soap_login_request_body(self.username, self.password)
+        logging.getLogger('sfdc_py').info('%s %s' % ('POST', service))
+        try:
+            request_object = requests.post(
+                service, headers=headers, data=xml, proxies=self.proxies, timeout=self.timeout)
+            self.status = request_object.status_code
+            if self.status == requests.codes.ok:
+                response = request_object.text
+                # TODO: parse this xml
+            else:
+                ex = SFDCRequestException('Request failed. Received %s status code' % self.status)
+
+                raise ex
+        except Exception as e:
+            self.exceptions.append(e)
+            logger.error('%s %s %s' % (self.http_method, service, self.status))
+            logger.error(e.message)
+            return
+        finally:
+            return response

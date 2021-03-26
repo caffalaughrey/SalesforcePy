@@ -41,6 +41,20 @@ def test_login_via_client_with_proxies():
 
 
 @responses.activate
+def test_login_via_soap():
+    testutil.add_response("soap_login_response_200")
+    testutil.add_response("api_version_response_200")
+    client = sfdc.client(
+        username=testutil.username,
+        password=testutil.password,
+        org_id=testutil.org_id
+    )
+    client.debug(level=logging.INFO)
+    login = client.login_via_soap()
+    print(login)
+
+
+@responses.activate
 def test_login_negative():
     testutil.add_response("login_response_401")
     testutil.add_response("api_version_response_200")

@@ -102,6 +102,7 @@ class Client(object):
         self.password = args[1]
         self.client_id = args[2]
         self.client_secret = args[3]
+        self.org_id = kwargs.get('org_id')
         self.protocol = kwargs.get('protocol')
         self.proxies = kwargs.get('proxies')
         self.instance_url = None
@@ -152,6 +153,22 @@ class Client(object):
             self.set_api_version()
 
         return req, login_response
+
+    @commons.kwarg_adder
+    def login_via_soap(self, **kwargs):
+        """ Performs a soap login request.
+
+          :param: **kwargs: kwargs
+          :type: **kwargs: dict
+          :return: Soap login response
+          :rtype: (dict, commons.SoapLoginRequest)
+        """
+        login_response = commons.SoapLoginRequest(
+            self.username,
+            self.password,
+            **kwargs
+        )
+        return login_response  # TODO: assign client properties, return dict too
 
     @commons.kwarg_adder
     def set_api_version(self, **kwargs):
@@ -1012,7 +1029,7 @@ class SObjects(commons.BaseRequest):
             return response
 
 
-def client(username, password, client_id, client_secret, **kwargs):
+def client(username, password, client_id=None, client_secret=None, **kwargs):
     """ Builds a `Client` and returns it.
 
         .. versionadded:: 1.0.0
@@ -1056,10 +1073,6 @@ def client(username, password, client_id, client_secret, **kwargs):
         raise ValueError('`username` cannot be None')
     elif password is None:
         raise ValueError('`password` cannot be None')
-    elif client_id is None:
-        raise ValueError('`client_id` cannot be None')
-    elif client_secret is None:
-        raise ValueError('`client_secret` cannot be None')
     return Client(
         username,
         password,
